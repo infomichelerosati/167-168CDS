@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente Accertamenti Stradali</title>
+    <!-- Riferimenti PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1e40af">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Stili personalizzati per usabilità su mobile e coerenza */
+        :root {
+            --primary-blue: #1e40af;
+            --light-blue: #eff6ff;
+            --dark-blue: #1e3a8a;
+            --accent-green: #10b981;
+            --accent-red: #b91c1c;
+            --accent-yellow: #b45309;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7f9;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px_12px rgba(0,0,0,0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            font-weight: 600;
+            color: var(--primary-blue);
+            margin-bottom: 0.25rem;
+            display: inline-flex;
+            align-items: center;
+        }
+        .input-group input, .input-group select, .input-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        .result-box, .verbal-box {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-weight: 500;
+        }
+        .result-box h3, .verbal-box h3 {
+            font-weight: 700;
+            color: var(--primary-blue);
+            border-bottom: 2px solid var(--light-blue);
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .warning { background-color: #fef3c7; color: var(--accent-yellow); }
+        .danger { background-color: #fee2e2; color: var(--accent-red); font-weight: 700; }
+        .button-primary {
+            background-color: var(--accent-green);
+            color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 700;
+            cursor: pointer; transition: background-color 0.2s; width: 100%; border: none;
+        }
+        .button-primary:hover { background-color: #059669; }
+        .button-secondary {
+            background-color: #f3f4f6; color: #374151; padding: 0.5rem 1rem; border-radius: 6px;
+            font-weight: 600; cursor: pointer; transition: background-color 0.2s; border: 1px solid #d1d5db;
+        }
+        .button-secondary:hover { background-color: #e5e7eb; }
+        
+        /* Stili per Accordion */
+        .accordion-header {
+            cursor: pointer; padding: 1rem; background-color: var(--light-blue); border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center; transition: background-color 0.2s;
+        }
+        .accordion-header:hover { background-color: #dbeafe; }
+        .accordion-content { display: none; padding: 1rem 0 0 0; }
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-header.active .accordion-icon { transform: rotate(180deg); }
+        
+        /* Stili per Checkbox personalizzati */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent-green); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .button-reset {
+            background-color: #dc2626; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 700;
+            cursor: pointer; transition: background-color 0.2s; width: 100%; border: none;
+        }
+        .button-reset:hover { background-color: #b91c1c; }
+
+        /* Stili per Modale Info */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6);
+            display: none; justify-content: center; align-items: center; z-index: 1000; padding: 1rem;
+        }
+        .modal-content {
+            background-color: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            width: 95%; max-width: 500px; position: relative;
+        }
+        .modal-content h3 { color: var(--primary-blue); font-size: 1.25rem; font-weight: bold; margin-bottom: 1rem; }
+        .modal-content p, .modal-content li { color: #374151; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .modal-content strong { color: var(--dark-blue); }
+        .modal-content ul { list-style-position: inside; }
+        .close-button {
+            position: absolute; top: 0.5rem; right: 0.75rem; font-size: 2rem;
+            font-weight: bold; cursor: pointer; color: #9ca3af;
+        }
+        .close-button:hover { color: #ef4444; }
+
+        .info-icon {
+            cursor: pointer; color: #3b82f6; margin-left: 0.5rem; display: inline-block; vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="p-2 md:p-4">
+
+    <!-- MODALE INFORMAZIONI -->
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="hideInfoModal()">&times;</span>
+            <h3 id="modalTitle"></h3>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <div class="max-w-xl mx-auto my-4">
+        <h1 class="text-2xl md:text-3xl font-extrabold text-center text-gray-800 mb-2">Assistente Accertamenti</h1>
+        <p class="text-center text-gray-600 mb-6">Calcolo Sanzioni Artt. 167 & 168 C.d.S.</p>
+
+        <!-- CARD PRINCIPALE -->
+        <div class="card">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Dati Veicolo e Rilevamento</h2>
+            <div class="input-group">
+                <label for="vehicleCategory">Categoria Veicolo</label>
+                <select id="vehicleCategory" onchange="checkAndResetResults();"><option value="">-- Seleziona --</option><option value="light">Leggero (≤ 10t)</option><option value="heavy">Pesante (> 10t)</option></select>
+            </div>
+            <div class="input-group">
+                <label for="mcpc">Massa a Pieno Carico (MCPC)
+                    <span class="info-icon" onclick="showInfoModal('Massa a Pieno Carico (MCPC)', '<p>La <strong>Massa Complessiva a Pieno Carico</strong> è il peso massimo che il veicolo può raggiungere, comprensivo di tara, carico, conducente e passeggeri.</p><p>Si trova alla voce <strong>F.2</strong> della Carta di Circolazione.</p>')">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12 5.688V9.75a.75.75 0 01-1.5 0V5.688L8.94 6.94zM11 12.25a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v3.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-3.25z" clip-rule="evenodd" /></svg>
+                    </span>
+                </label>
+                <input type="number" id="mcpc" placeholder="in kg (voce F.2 C.d.C.)" oninput="checkAndResetResults();">
+            </div>
+            <div class="input-group">
+                <label for="massDetected">Massa Rilevata</label>
+                <input type="number" id="massDetected" placeholder="in kg" oninput="checkAndResetResults();">
+            </div>
+        </div>
+
+        <!-- SEZIONI AVANZATE (ACCORDION) -->
+        <div class="space-y-2">
+            <div class="card">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <h3 class="text-lg font-bold text-gray-800">Casi Particolari e Tolleranze</h3>
+                    <svg class="accordion-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div class="accordion-content">
+                    <div class="input-group">
+                        <label for="tolerance">Tipo di Pesa
+                             <span class="info-icon" onclick="showInfoModal('Tipo di Pesa e Tolleranza Strumentale', '<p>La normativa prevede una tolleranza a favore del trasgressore per compensare eventuali errori dello strumento di pesatura (<strong>Art. 167, c. 1-bis</strong>).</p><ul><li><strong>Pesa Statica (5%):</strong> Pese fisse o mobili omologate, dove il veicolo viene pesato da fermo. È la modalità standard.</li><li><strong>Pesa Dinamica (10%):</strong> Sistemi che pesano il veicolo in movimento, tipicamente usati dalla Polizia Stradale. La tolleranza è maggiore per compensare le oscillazioni.</li></ul>')">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12 5.688V9.75a.75.75 0 01-1.5 0V5.688L8.94 6.94zM11 12.25a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v3.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-3.25z" clip-rule="evenodd" /></svg>
+                            </span>
+                        </label>
+                        <select id="tolerance" onchange="checkAndResetResults();"><option value="0.05">Pesa Statica (5%)</option><option value="0.10">Pesa Dinamica (10%)</option></select>
+                    </div>
+                    <div class="flex justify-between items-center mb-4 p-2 bg-gray-50 rounded-lg">
+                        <label for="veicoloAlternativo">Veicolo Alternativo
+                            <span class="info-icon" onclick="showInfoModal('Tolleranza Veicoli Alternativi', '<p>I veicoli a trazione ibrida, elettrica o a carburanti alternativi beneficiano di una tolleranza aggiuntiva per compensare il maggior peso delle batterie o dei serbatoi.</p><ul><li><strong>Veicoli Pesanti (> 10t):</strong> +1.000 kg (Art. 167, c. 2-bis).</li><li><strong>Veicoli Leggeri (≤ 10t):</strong> +10% sulla MCPC (Art. 167, c. 3-bis).</li></ul>')">
+                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12 5.688V9.75a.75.75 0 01-1.5 0V5.688L8.94 6.94zM11 12.25a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v3.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-3.25z" clip-rule="evenodd" /></svg>
+                            </span>
+                        </label>
+                        <label class="switch"><input type="checkbox" id="veicoloAlternativo" onchange="checkAndResetResults();"><span class="slider"></span></label>
+                    </div>
+                    <div class="flex justify-between items-center mb-4 p-2 bg-red-50 rounded-lg">
+                        <label for="merciPericolose" class="font-bold text-red-700">Merci Pericolose (ADR)
+                             <span class="info-icon" onclick="showInfoModal('Trasporto Merci Pericolose (Art. 168)', '<p>Per i trasporti in regime ADR, la normativa è molto più stringente (<strong>Art. 168, c. 7</strong>).</p><p><strong>ATTENZIONE:</strong> Non si applica la franchigia legale del 5%. La sanzione scatta per qualsiasi eccedenza rispetto alla massa ammessa (al netto della sola tolleranza strumentale).</p><p>Inoltre, si applicano sempre le sanzioni accessorie della <strong>sospensione della patente e del C.F.P. ADR da 2 a 6 mesi</strong> (Art. 168, c. 8).</p>')">
+                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12 5.688V9.75a.75.75 0 01-1.5 0V5.688L8.94 6.94zM11 12.25a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v3.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-3.25z" clip-rule="evenodd" /></svg>
+                            </span>
+                        </label>
+                        <label class="switch"><input type="checkbox" id="merciPericolose" onchange="checkAndResetResults();"><span class="slider"></span></label>
+                    </div>
+                    <div class="flex justify-between items-center mb-2 p-2 bg-yellow-50 rounded-lg">
+                        <label for="trasportoEccezionale" class="font-medium text-yellow-800">Trasporto Eccezionale</label>
+                        <label class="switch"><input type="checkbox" id="trasportoEccezionale" onchange="toggleEccezionale();"><span class="slider"></span></label>
+                    </div>
+                    <div id="eccezionaleDetails" class="input-group hidden pl-4 border-l-4 border-yellow-300">
+                        <label for="massaAutorizzata">Massa Max Autorizzata</label>
+                        <input type="number" id="massaAutorizzata" placeholder="in kg (da autorizzazione)" oninput="checkAndResetResults();">
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <h3 class="text-lg font-bold text-gray-800">Obbligati in Solido
+                         <span class="info-icon" onclick="showInfoModal('Obbligati in Solido (Art. 196 C.d.S.)', '<p>L\'infrazione genera <strong>un\'unica sanzione pecuniaria</strong>, ma la legge individua più soggetti responsabili per il pagamento (principio di solidarietà). È obbligatorio identificarli e inserirli nell\'unico verbale.</p><p><strong>Chi sono gli obbligati in solido?</strong></p><ul><li><strong>Proprietario</strong> del veicolo</li><li><strong>Committente</strong> (chi ordina il trasporto)</li><li><strong>Caricatore</strong> (chi ha caricato la merce)</li><li><strong>Spedizioniere</strong></li></ul><p class=mt-2><strong>Importante:</strong></p><ul><li>La sanzione pecuniaria (€) è <strong>unica</strong> e può essere richiesta per intero a uno qualsiasi dei soggetti.</li><li>Le sanzioni personali (es. <strong>punti, sospensione patente</strong>) si applicano <strong>solo ed esclusivamente al conducente</strong>.</li></ul>')">
+                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12 5.688V9.75a.75.75 0 01-1.5 0V5.688L8.94 6.94zM11 12.25a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v3.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-3.25z" clip-rule="evenodd" /></svg>
+                        </span>
+                    </h3>
+                    <svg class="accordion-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div class="accordion-content">
+                    <div id="obbligatiContainer" class="space-y-4"></div>
+                    <button class="button-secondary mt-4 w-full" onclick="addObbligato()">+ Aggiungi Obbligato</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <h3 class="text-lg font-bold text-gray-800">Dati Pesa Esterna</h3>
+                    <svg class="accordion-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div class="accordion-content">
+                    <div class="input-group"><label for="nomePesa">Nome/Ragione Sociale Pesa</label><input type="text" id="nomePesa" placeholder="Es. Pesa pubblica Rossi s.r.l."></div>
+                    <div class="input-group"><label for="certificatoPesa">Estremi Certificato Verificazione</label><input type="text" id="certificatoPesa" placeholder="Es. N. 123456 scad. GG/MM/AAAA"></div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="accordion-header" onclick="toggleAccordion(this)">
+                    <h3 class="text-lg font-bold text-gray-800">Note e Checklist Operativa</h3>
+                    <svg class="accordion-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div class="accordion-content">
+                    <div class="input-group"><label for="noteVerbale">Note Aggiuntive per il Verbale</label><textarea id="noteVerbale" rows="3" placeholder="Es. Carico mal posizionato, ..."></textarea></div>
+                    <h4 class="font-semibold text-gray-700 mb-2">Checklist Procedurale</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li class="flex items-center"><input type="checkbox" id="check1" class="mr-2 h-4 w-4"><label for="check1">Acquisito scontrino pesa?</label></li>
+                        <li class="flex items-center"><input type="checkbox" id="check2" class="mr-2 h-4 w-4"><label for="check2">Verificato Certificato Verificazione Periodica (se esterna)?</label></li>
+                        <li class="flex items-center"><input type="checkbox" id="check3" class="mr-2 h-4 w-4"><label for="check3">Identificati e inseriti tutti gli obbligati in solido?</label></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4 mt-6">
+             <button class="button-reset w-1/3" onclick="resetForm()">Azzera</button>
+             <button class="button-primary w-2/3" onclick="calculateWrapper()">Calcola Sanzione</button>
+        </div>
+
+        <div id="result" class="mt-4"></div>
+        <div id="verbalOutput"></div>
+    </div>
+
+    <footer class="text-center text-xs text-gray-500 pb-4 mt-8">
+        <p>Calcoli basati sul Codice della Strada italiano, aggiornato al 2025.</p>
+    </footer>
+
+    <script>
+        function showInfoModal(title, content) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('infoModal').style.display = 'flex';
+        }
+
+        function hideInfoModal() {
+            document.getElementById('infoModal').style.display = 'none';
+        }
+
+        function toggleAccordion(header) {
+            const content = header.nextElementSibling;
+            header.classList.toggle('active');
+            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function toggleEccezionale() {
+            document.getElementById('eccezionaleDetails').classList.toggle('hidden');
+            checkAndResetResults();
+        }
+
+        function addObbligato() {
+            const container = document.getElementById('obbligatiContainer');
+            const obbligatoDiv = document.createElement('div');
+            obbligatoDiv.className = 'obbligato-entry p-3 border rounded-lg relative';
+            obbligatoDiv.innerHTML = `
+                <button onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-500 font-bold text-xl">&times;</button>
+                <div class="input-group"><label>Tipo Soggetto</label><select class="obbligato-tipo"><option>Proprietario</option><option>Committente</option><option>Caricatore</option><option>Spedizioniere</option></select></div>
+                <div class="input-group"><label>Nome/Ragione Sociale</label><input type="text" class="obbligato-nome" placeholder="Dati del soggetto"></div>
+            `;
+            container.appendChild(obbligatoDiv);
+        }
+        
+        function resetForm() {
+            document.getElementById('vehicleCategory').value = '';
+            document.getElementById('mcpc').value = '';
+            document.getElementById('massDetected').value = '';
+            document.getElementById('tolerance').value = '0.05';
+            document.getElementById('veicoloAlternativo').checked = false;
+            document.getElementById('merciPericolose').checked = false;
+            document.getElementById('trasportoEccezionale').checked = false;
+            document.getElementById('massaAutorizzata').value = '';
+            document.getElementById('nomePesa').value = '';
+            document.getElementById('certificatoPesa').value = '';
+            document.getElementById('noteVerbale').value = '';
+            document.getElementById('check1').checked = false;
+            document.getElementById('check2').checked = false;
+            document.getElementById('check3').checked = false;
+            const eccezionaleDetails = document.getElementById('eccezionaleDetails');
+            if (!eccezionaleDetails.classList.contains('hidden')) {
+                eccezionaleDetails.classList.add('hidden');
+            }
+            document.querySelectorAll('.accordion-header.active').forEach(header => {
+                header.classList.remove('active');
+                header.nextElementSibling.style.display = 'none';
+            });
+            const container = document.getElementById('obbligatiContainer');
+            container.innerHTML = '';
+            addObbligato();
+            checkAndResetResults();
+        }
+
+        function checkAndResetResults() {
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('verbalOutput').innerHTML = '';
+        }
+        
+        function roundUpToHundreds(value) { return Math.ceil(value / 100) * 100; }
+
+        function calculateWrapper() {
+            checkAndResetResults();
+            const mcpc = parseFloat(document.getElementById('mcpc').value);
+            const massDetected = parseFloat(document.getElementById('massDetected').value);
+            const isADR = document.getElementById('merciPericolose').checked;
+
+            if (isNaN(mcpc) || isNaN(massDetected) || mcpc <= 0 || massDetected <= 0) {
+                document.getElementById('result').innerHTML = '<div class="danger p-3">ERRORE: Compilare i campi MCPC e Massa Rilevata.</div>';
+                return;
+            }
+             if (massDetected < mcpc) {
+                 document.getElementById('result').innerHTML = '<div class="result-box bg-green-100 text-green-700 font-bold"><p>ACCERTAMENTO NEGATIVO: La Massa Rilevata è inferiore alla Massa Ammessa.</p></div>';
+                return;
+            }
+
+            if (isADR) {
+                calculateArt168Sanction(mcpc, massDetected);
+            } else {
+                calculateArt167Sanction(mcpc, massDetected);
+            }
+        }
+
+        function calculateArt167Sanction(mcpc, massDetected) {
+            const category = document.getElementById('vehicleCategory').value;
+            if (!category) {
+                 document.getElementById('result').innerHTML = '<div class="danger p-3">ERRORE: Selezionare la Categoria del Veicolo.</div>';
+                return;
+            }
+
+            const tolerancePercentage = parseFloat(document.getElementById('tolerance').value);
+            const veicoloAlternativo = document.getElementById('veicoloAlternativo').checked;
+            const isEccezionale = document.getElementById('trasportoEccezionale').checked;
+            const massaAutorizzata = parseFloat(document.getElementById('massaAutorizzata').value);
+            
+            let massaAmmessa = (isEccezionale && !isNaN(massaAutorizzata) && massaAutorizzata > 0) ? massaAutorizzata : mcpc;
+            const toleranceValue = roundUpToHundreds(massDetected * tolerancePercentage);
+            const massNettaRilevata = massDetected - toleranceValue;
+            let massaAmmessaCorretta = massaAmmessa;
+            if (veicoloAlternativo) {
+                if (category === 'heavy') massaAmmessaCorretta += 1000;
+                else if (category === 'light') massaAmmessaCorretta = roundUpToHundreds(mcpc * 1.10);
+            }
+            const tolleranzaLegale = mcpc * 0.05;
+            const massaMinimaSanzionabile = roundUpToHundreds(massaAmmessaCorretta + tolleranzaLegale);
+            const eccedenzaNetta = massNettaRilevata - massaMinimaSanzionabile;
+            const eccedenzaNettaSanzionabile = eccedenzaNetta > 0 ? roundUpToHundreds(eccedenzaNetta) : 0;
+            const isViolation = eccedenzaNettaSanzionabile > 0;
+            let sanction = getSanctionDetails(isViolation, category, eccedenzaNettaSanzionabile, mcpc);
+            
+            displayResults(sanction, {
+                massaAmmessaCorretta, tolleranzaLegale, massaMinimaSanzionabile, 
+                toleranceValue, massNettaRilevata, eccedenzaNettaSanzionabile
+            });
+        }
+        
+        function calculateArt168Sanction(mcpc, massDetected) {
+            const tolerancePercentage = parseFloat(document.getElementById('tolerance').value);
+            const toleranceValue = roundUpToHundreds(massDetected * tolerancePercentage);
+            const massNettaRilevata = massDetected - toleranceValue;
+            const massaAmmessa = mcpc;
+            const eccedenzaNetta = massNettaRilevata - massaAmmessa;
+            const eccedenzaNettaSanzionabile = eccedenzaNetta > 0 ? roundUpToHundreds(eccedenzaNetta) : 0;
+
+            const isViolation = eccedenzaNettaSanzionabile > 0;
+            const category = mcpc > 10000 ? 'heavy' : 'light';
+            let sanction = getSanctionDetails(isViolation, category, eccedenzaNettaSanzionabile, mcpc);
+            
+            if(isViolation) {
+                sanction.riferimentoNormativo = 'Art. 168 c. 7 e Art. 167 C.d.S.';
+                sanction.provvedimentoAccessorio += ' + SOSPENSIONE PATENTE E C.F.P. (ADR) da 2 a 6 mesi (Art. 168 c. 8).';
+            }
+            
+            displayResults(sanction, {
+                massaAmmessaCorretta: massaAmmessa, tolleranzaLegale: 0, massaMinimaSanzionabile: massaAmmessa, 
+                toleranceValue, massNettaRilevata, eccedenzaNettaSanzionabile
+            });
+        }
+
+        function getSanctionDetails(isViolation, category, eccedenza, mcpc) {
+            let sanction = { isViolation: isViolation, descrizioneBreve: '', fascia: 'Nessuna Sanzione', importoMin: 0, importoMax: 0, punti: 0, provvedimentoAccessorio: 'Il veicolo può proseguire il viaggio.', riferimentoNormativo: 'Nessuna violazione accertata.'};
+            if (!isViolation) return sanction;
+
+            let sanzioni;
+            if (category === 'heavy') {
+                const eccedenzaT = eccedenza / 1000;
+                sanzioni = [
+                    {limite: 1, fascia: 'Fino a 1 t', p:1, min:42, max:173, lett:'a'},
+                    {limite: 2, fascia: 'Oltre 1 t e fino a 2 t', p:2, min:87, max:345, lett:'b'},
+                    {limite: 3, fascia: 'Oltre 2 t e fino a 3 t', p:3, min:173, max:695, lett:'c'},
+                    {limite: Infinity, fascia: 'Oltre 3 t', p:4, min:431, max:1734, lett:'d'}
+                ];
+                const s = sanzioni.find(s => eccedenzaT <= s.limite);
+                Object.assign(sanction, {punti:s.p, importoMin:s.min, importoMax:s.max, fascia:s.fascia, riferimentoNormativo:`Art. 167 c. 2 lett. ${s.lett}`, descrizioneBreve:`circolava con massa complessiva superiore ai limiti, con eccedenza di ${eccedenza.toLocaleString()} kg (${eccedenzaT.toFixed(2)} t).`});
+            } else { // light
+                const eccedenzaP = (eccedenza / mcpc) * 100;
+                sanzioni = [
+                    {limite: 10, fascia: 'Oltre 5% e fino al 10%', p:1, min:42, max:173, lett:'a'},
+                    {limite: 20, fascia: 'Oltre 10% e fino al 20%', p:2, min:87, max:345, lett:'b'},
+                    {limite: 30, fascia: 'Oltre 20% e fino al 30%', p:3, min:173, max:695, lett:'c'},
+                    {limite: Infinity, fascia: 'Oltre 30%', p:4, min:431, max:1734, lett:'d'}
+                ];
+                 const s = sanzioni.find(s => eccedenzaP <= s.limite);
+                 Object.assign(sanction, {punti:s.p, importoMin:s.min, importoMax:s.max, fascia:s.fascia, riferimentoNormativo:`Art. 167 c. 3 e c. 2 lett. ${s.lett}`, descrizioneBreve:`circolava con massa complessiva superiore ai limiti, con eccedenza di ${eccedenza.toLocaleString()} kg (pari al ${eccedenzaP.toFixed(2)}%).`});
+            }
+
+            sanction.provvedimentoAccessorio = 'Obbligo di ripristino del carico prima di proseguire (Art. 167 c. 10).';
+            if (sanction.punti === 4) {
+                sanction.provvedimentoAccessorio = 'RITIRO CARTA DI CIRCOLAZIONE (Art. 167 c. 9) e Obbligo di ripristino del carico.';
+            }
+            return sanction;
+        }
+
+        function displayResults(sanction, calc) {
+            let calculationHtml = `
+                <div class="result-box bg-white border border-blue-200">
+                    <h3 class="text-blue-700">Dettagli Calcolo</h3>
+                    <div class="text-sm space-y-2">
+                        <p><strong>Massa Ammessa (corretta):</strong> ${calc.massaAmmessaCorretta.toLocaleString()} kg</p>
+                        <p><strong>Tolleranza Legale (5% su MCPC):</strong> ${calc.tolleranzaLegale.toLocaleString()} kg</p>
+                        <p><strong>Massa Minima Sanzionabile:</strong> ${calc.massaMinimaSanzionabile.toLocaleString()} kg</p>
+                        <hr class="my-1"/>
+                        <p><strong>Tolleranza Strumentale:</strong> ${calc.toleranceValue.toLocaleString()} kg</p>
+                        <p><strong>Massa Netta Rilevata:</strong> ${calc.massNettaRilevata.toLocaleString()} kg</p>
+                        <p class="font-bold text-red-600"><strong>Eccedenza Netta Sanzionabile:</strong> ${calc.eccedenzaNettaSanzionabile.toLocaleString()} kg</p>
+                    </div>
+                </div>`;
+            
+            let sanctionHtml = '';
+            if (sanction.isViolation) {
+                sanctionHtml = `
+                    <div class="result-box danger">
+                        <h3 class="text-red-700 border-red-300">Violazione Accertata</h3>
+                        <p><strong>FASCIA:</strong> ${sanction.fascia} (${sanction.riferimentoNormativo})</p>
+                        <p><strong>SANZIONE:</strong> Da € ${sanction.importoMin} a € ${sanction.importoMax}</p>
+                        <p><strong>PUNTI:</strong> ${sanction.punti}</p>
+                        <p class="mt-2"><strong>PROVVEDIMENTI:</strong> ${sanction.provvedimentoAccessorio}</p>
+                    </div>`;
+                
+                const obbligatiList = Array.from(document.querySelectorAll('.obbligato-entry')).map(entry => {
+                    const tipo = entry.querySelector('.obbligato-tipo').value;
+                    const nome = entry.querySelector('.obbligato-nome').value;
+                    return `- ${tipo}: ${nome || '[non specificato]'}`;
+                }).join('\n');
+                
+                let pesaEsternaClausola = '';
+                const nomePesa = document.getElementById('nomePesa').value;
+                const certPesa = document.getElementById('certificatoPesa').value;
+                if (nomePesa && certPesa) {
+                    pesaEsternaClausola = `La pesatura è stata eseguita su pesa esterna (${nomePesa}), con CVP n. ${certPesa}.`;
+                }
+                const noteAggiuntive = document.getElementById('noteVerbale').value;
+
+                document.getElementById('verbalOutput').innerHTML = `
+                    <div class="verbal-box warning mt-4">
+                        <h3 class="text-amber-700 border-amber-300">Formulazione per Verbale</h3>
+                        <p class="text-sm font-bold mb-1">A. Descrizione Infrazione:</p>
+                        <div class="bg-amber-50 p-2 rounded border text-sm font-mono"><p>${sanction.descrizioneBreve}</p></div>
+                        
+                        <p class="text-sm font-bold mt-3 mb-1">B. Obbligati in Solido:</p>
+                        <div class="bg-amber-50 p-2 rounded border text-sm font-mono whitespace-pre-wrap">${obbligatiList || 'Nessun obbligato in solido inserito.'}</div>
+
+                        <p class="text-sm font-bold mt-3 mb-1">C. Note e Provvedimenti:</p>
+                        <div class="bg-amber-50 p-2 rounded border text-sm font-mono whitespace-pre-wrap">${sanction.provvedimentoAccessorio}\n${pesaEsternaClausola}\n${noteAggiuntive ? '\nNote: ' + noteAggiuntive : ''}</div>
+                    </div>`;
+            } else {
+                 sanctionHtml = `<div class="result-box bg-green-100 text-green-700 font-bold"><p>ACCERTAMENTO NEGATIVO: Il veicolo rientra nei limiti.</p></div>`;
+            }
+
+            document.getElementById('result').innerHTML = calculationHtml + sanctionHtml;
+        }
+
+        // --- Inizializzazione ---
+        document.addEventListener('DOMContentLoaded', () => {
+             resetForm(); // Pulisce e inizializza il form al caricamento
+        });
+    </script>
+</body>
+</html>
+
+
