@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Assistente Accertamenti Stradali</title>
-    <!-- Riferimenti PWA -->
-    <link rel="manifest" href="/manifest.json">
+    <!-- Riferimenti PWA (Percorso Corretto) -->
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e40af">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -206,7 +206,7 @@
             <div class="card">
                 <div class="accordion-header" onclick="toggleAccordion(this)">
                     <h3 class="text-lg font-bold text-gray-800">Obbligati in Solido
-                         <span class="info-icon" onclick="showInfoModal('Obbligati in Solido (Art. 196 C.d.S.)', '<p>L\'infrazione genera <strong>un\'unica sanzione pecuniaria</strong>, ma la legge individua più soggetti responsabili per il pagamento (principio di solidarietà). È obbligatorio identificarli e inserirli nell\'unico verbale.</p><p><strong>Chi sono gli obbligati in solido?</strong></p><ul><li><strong>Proprietario</strong> del veicolo</li><li><strong>Committente</strong> (chi ordina il trasporto)</li><li><strong>Caricatore</strong> (chi ha caricato la merce)</li><li><strong>Spedizioniere</strong></li></ul><p class=mt-2><strong>Importante:</strong></p><ul><li>La sanzione pecuniaria (€) è <strong>unica</strong> e può essere richiesta per intero a uno qualsiasi dei soggetti.</li><li>Le sanzioni personali (es. <strong>punti, sospensione patente</strong>) si applicano <strong>solo ed esclusivamente al conducente</strong>.</li></ul>')">
+                         <span class="info-icon" onclick="showInfoModal('Obbligati in Solido (Art. 196 C.d.S.)', '<p>L\'infrazione genera <strong>un\'unica sanzione pecuniaria</strong>, ma la legge individua più soggetti responsabili for il pagamento (principio di solidarietà). È obbligatorio identificarli e inserirli nell\'unico verbale.</p><p><strong>Chi sono gli obbligati in solido?</strong></p><ul><li><strong>Proprietario</strong> del veicolo</li><li><strong>Committente</strong> (chi ordina il trasporto)</li><li><strong>Caricatore</strong> (chi ha caricato la merce)</li><li><strong>Spedizioniere</strong></li></ul><p class=mt-2><strong>Importante:</strong></p><ul><li>La sanzione pecuniaria (€) è <strong>unica</strong> e può essere richiesta per intero a uno qualsiasi dei soggetti.</li><li>Le sanzioni personali (es. <strong>punti, sospensione patente</strong>) si applicano <strong>solo ed esclusivamente al conducente</strong>.</li></ul>')">
                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8.94 6.94a.75.75 0 11-1.06-1.061l2.5-2.5a.75.75 0 011.06 0l2.5 2.5a.75.75 0 01-1.06 1.06L12 5.688V9.75a.75.75 0 01-1.5 0V5.688L8.94 6.94zM11 12.25a.75.75 0 01.75-.75h.008a.75.75 0 01.75.75v3.25a.75.75 0 01-.75.75h-.008a.75.75 0 01-.75-.75v-3.25z" clip-rule="evenodd" /></svg>
                         </span>
                     </h3>
@@ -261,7 +261,8 @@
         // --- REGISTRAZIONE SERVICE WORKER ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
+                // Usiamo un percorso relativo per massima compatibilità
+                navigator.serviceWorker.register('service-worker.js')
                     .then(registration => {
                         console.log('Service Worker registrato con successo:', registration.scope);
                     })
