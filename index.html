@@ -26,7 +26,7 @@
         .card {
             background-color: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 4px_12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             padding: 1.5rem;
             margin-bottom: 1rem;
         }
@@ -258,9 +258,22 @@
     </footer>
 
     <script>
+        // --- REGISTRAZIONE SERVICE WORKER ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registrato con successo:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Registrazione Service Worker fallita:', error);
+                    });
+            });
+        }
+
         // --- GESTIONE UI ---
         function showInfoModal(title, content) {
-            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalTitle').innerHTML = title;
             document.getElementById('modalContent').innerHTML = content;
             document.getElementById('infoModal').style.display = 'flex';
         }
@@ -272,26 +285,50 @@
         function toggleAccordion(header) {
             const content = header.nextElementSibling;
             header.classList.toggle('active');
-            content.style.display = content.style.display === 'block' ? 'none' : 'block';
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+            } else {
+                content.style.display = 'block';
+            }
         }
 
         function toggleEccezionale() {
-            document.getElementById('eccezionaleDetails').classList.toggle('hidden');
+            const details = document.getElementById('eccezionaleDetails');
+            details.classList.toggle('hidden');
             checkAndResetResults();
         }
 
+        let obbligatoCounter = 0;
         function addObbligato() {
+            obbligatoCounter++;
             const container = document.getElementById('obbligatiContainer');
-            const obbligatoDiv = document.createElement('div');
-            obbligatoDiv.className = 'obbligato-entry p-3 border rounded-lg relative';
-            obbligatoDiv.innerHTML = `
-                <button onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-500 font-bold text-xl">&times;</button>
-                <div class="input-group"><label>Tipo Soggetto</label><select class="obbligato-tipo"><option>Proprietario</option><option>Committente</option><option>Caricatore</option><option>Spedizioniere</option></select></div>
-                <div class="input-group"><label>Nome/Ragione Sociale</label><input type="text" class="obbligato-nome" placeholder="Dati del soggetto"></div>
+            const div = document.createElement('div');
+            div.className = 'obbligato-entry p-3 border rounded-lg bg-gray-50';
+            div.id = `obbligato-${obbligatoCounter}`;
+            div.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <p class="font-semibold text-gray-700">Obbligato #${obbligatoCounter}</p>
+                    <button class="text-red-500 hover:text-red-700" onclick="removeObbligato(${obbligatoCounter})">Rimuovi</button>
+                </div>
+                <select class="w-full p-2 border rounded-md mb-2">
+                    <option value="Proprietario">Proprietario</option>
+                    <option value="Committente">Committente</option>
+                    <option value="Caricatore">Caricatore</option>
+                    <option value="Spedizioniere">Spedizioniere</option>
+                    <option value="Altro">Altro</option>
+                </select>
+                <textarea rows="2" class="w-full p-2 border rounded-md" placeholder="Dati anagrafici e indirizzo..."></textarea>
             `;
-            container.appendChild(obbligatoDiv);
+            container.appendChild(div);
         }
-        
+
+        function removeObbligato(id) {
+            const element = document.getElementById(`obbligato-${id}`);
+            if (element) {
+                element.remove();
+            }
+        }
+
         function resetForm() {
             document.getElementById('vehicleCategory').value = '';
             document.getElementById('mcpc').value = '';
@@ -301,204 +338,177 @@
             document.getElementById('merciPericolose').checked = false;
             document.getElementById('trasportoEccezionale').checked = false;
             document.getElementById('massaAutorizzata').value = '';
+            document.getElementById('eccezionaleDetails').classList.add('hidden');
             document.getElementById('nomePesa').value = '';
             document.getElementById('certificatoPesa').value = '';
             document.getElementById('noteVerbale').value = '';
-            document.getElementById('check1').checked = false;
-            document.getElementById('check2').checked = false;
-            document.getElementById('check3').checked = false;
-            const eccezionaleDetails = document.getElementById('eccezionaleDetails');
-            if (!eccezionaleDetails.classList.contains('hidden')) {
-                eccezionaleDetails.classList.add('hidden');
-            }
-            document.querySelectorAll('.accordion-header.active').forEach(header => {
-                header.classList.remove('active');
-                header.nextElementSibling.style.display = 'none';
-            });
-            const container = document.getElementById('obbligatiContainer');
-            container.innerHTML = '';
-            addObbligato();
+            document.querySelectorAll('#obbligatiContainer .obbligato-entry').forEach(e => e.remove());
+            obbligatoCounter = 0;
+            document.querySelectorAll('input[type=checkbox]').forEach(el => el.checked = false);
+            
+            document.querySelectorAll('.accordion-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.accordion-header').forEach(el => el.classList.remove('active'));
+
             checkAndResetResults();
+        }
+
+        // --- LOGICA DI CALCOLO ---
+
+        function calculateWrapper() {
+            // Validazione preliminare
+            const mcpc = parseFloat(document.getElementById('mcpc').value);
+            const massDetected = parseFloat(document.getElementById('massDetected').value);
+            const category = document.getElementById('vehicleCategory').value;
+
+            document.getElementById('result').innerHTML = '';
+            document.getElementById('verbalOutput').innerHTML = '';
+
+            if (!category) {
+                document.getElementById('result').innerHTML = '<div class="danger p-3">ERRORE: Selezionare la Categoria del Veicolo.</div>';
+                return;
+            }
+            if (isNaN(mcpc) || isNaN(massDetected) || mcpc <= 0 || massDetected <= 0) {
+                document.getElementById('result').innerHTML = '<div class="danger p-3">ERRORE: Compilare i campi MCPC e Massa Rilevata.</div>';
+                return;
+            }
+             if (massDetected < mcpc && !document.getElementById('trasportoEccezionale').checked) {
+                document.getElementById('result').innerHTML = '<div class="result-box bg-green-100 text-green-700 font-bold p-3">Nessun sovraccarico. La massa rilevata è inferiore alla massa ammessa.</div>';
+                return;
+            }
+
+            calculateSanction();
+        }
+
+        function roundUpToHundreds(value) {
+            return Math.ceil(value / 100) * 100;
         }
 
         function checkAndResetResults() {
             document.getElementById('result').innerHTML = '';
             document.getElementById('verbalOutput').innerHTML = '';
         }
-        
-        function roundUpToHundreds(value) { return Math.ceil(value / 100) * 100; }
 
-        function calculateWrapper() {
-            checkAndResetResults();
+        function calculateSanction() {
+            // --- 1. Raccolta Dati ---
             const mcpc = parseFloat(document.getElementById('mcpc').value);
             const massDetected = parseFloat(document.getElementById('massDetected').value);
-            const isADR = document.getElementById('merciPericolose').checked;
-
-            if (isNaN(mcpc) || isNaN(massDetected) || mcpc <= 0 || massDetected <= 0) {
-                document.getElementById('result').innerHTML = '<div class="danger p-3">ERRORE: Compilare i campi MCPC e Massa Rilevata.</div>';
-                return;
-            }
-             if (massDetected < mcpc) {
-                 document.getElementById('result').innerHTML = '<div class="result-box bg-green-100 text-green-700 font-bold"><p>ACCERTAMENTO NEGATIVO: La Massa Rilevata è inferiore alla Massa Ammessa.</p></div>';
-                return;
-            }
-
-            if (isADR) {
-                calculateArt168Sanction(mcpc, massDetected);
-            } else {
-                calculateArt167Sanction(mcpc, massDetected);
-            }
-        }
-
-        function calculateArt167Sanction(mcpc, massDetected) {
-            const category = document.getElementById('vehicleCategory').value;
-            if (!category) {
-                 document.getElementById('result').innerHTML = '<div class="danger p-3">ERRORE: Selezionare la Categoria del Veicolo.</div>';
-                return;
-            }
-
             const tolerancePercentage = parseFloat(document.getElementById('tolerance').value);
+            const category = document.getElementById('vehicleCategory').value;
             const veicoloAlternativo = document.getElementById('veicoloAlternativo').checked;
-            const isEccezionale = document.getElementById('trasportoEccezionale').checked;
+            const merciPericolose = document.getElementById('merciPericolose').checked;
+            const trasportoEccezionale = document.getElementById('trasportoEccezionale').checked;
             const massaAutorizzata = parseFloat(document.getElementById('massaAutorizzata').value);
             
-            let massaAmmessa = (isEccezionale && !isNaN(massaAutorizzata) && massaAutorizzata > 0) ? massaAutorizzata : mcpc;
-            const toleranceValue = roundUpToHundreds(massDetected * tolerancePercentage);
+            let massaAmmessa = trasportoEccezionale && !isNaN(massaAutorizzata) && massaAutorizzata > 0 ? massaAutorizzata : mcpc;
+
+            // --- 2. Tolleranze e Masse Nette ---
+            const toleranceValue = massDetected * tolerancePercentage;
             const massNettaRilevata = massDetected - toleranceValue;
+            
             let massaAmmessaCorretta = massaAmmessa;
             if (veicoloAlternativo) {
                 if (category === 'heavy') massaAmmessaCorretta += 1000;
-                else if (category === 'light') massaAmmessaCorretta = roundUpToHundreds(mcpc * 1.10);
+                else if (category === 'light') massaAmmessaCorretta += mcpc * 0.10;
             }
-            const tolleranzaLegale = mcpc * 0.05;
-            const massaMinimaSanzionabile = roundUpToHundreds(massaAmmessaCorretta + tolleranzaLegale);
-            const eccedenzaNetta = massNettaRilevata - massaMinimaSanzionabile;
-            const eccedenzaNettaSanzionabile = eccedenzaNetta > 0 ? roundUpToHundreds(eccedenzaNetta) : 0;
-            const isViolation = eccedenzaNettaSanzionabile > 0;
-            let sanction = getSanctionDetails(isViolation, category, eccedenzaNettaSanzionabile, mcpc);
             
-            displayResults(sanction, {
-                massaAmmessaCorretta, tolleranzaLegale, massaMinimaSanzionabile, 
-                toleranceValue, massNettaRilevata, eccedenzaNettaSanzionabile
-            });
+            // --- 3. Calcolo Eccedenza ---
+            let eccedenza = massNettaRilevata - massaAmmessaCorretta;
+            let franchigiaLegale = merciPericolose ? 0 : massaAmmessa * 0.05;
+            
+            let eccedenzaNettaSanzionabile = 0;
+            if (eccedenza > franchigiaLegale) {
+                eccedenzaNettaSanzionabile = roundUpToHundreds(eccedenza);
+            }
+
+            // --- 4. Determinazione Sanzione ---
+            let sanction = { isViolation: false, descrizione: 'Nessuna violazione accertata.' };
+            if (eccedenzaNettaSanzionabile > 0) {
+                sanction.isViolation = true;
+                if (category === 'heavy') {
+                    const eccedenzaTonnellate = eccedenzaNettaSanzionabile / 1000;
+                    if (eccedenzaTonnellate > 3) sanction = {...sanction, art: '167/2-d', fascia: 'Oltre 3t', importo: '431-1734', punti: 4, acc: 'Ritiro C.d.C.'};
+                    else if (eccedenzaTonnellate > 2) sanction = {...sanction, art: '167/2-c', fascia: '2-3t', importo: '173-695', punti: 3, acc: 'Ripristino'};
+                    else if (eccedenzaTonnellate > 1) sanction = {...sanction, art: '167/2-b', fascia: '1-2t', importo: '87-345', punti: 2, acc: 'Ripristino'};
+                    else sanction = {...sanction, art: '167/2-a', fascia: 'fino a 1t', importo: '42-173', punti: 1, acc: 'Ripristino'};
+                } else { // light
+                    const eccedenzaPercentuale = (eccedenzaNettaSanzionabile / massaAmmessa) * 100;
+                    if (eccedenzaPercentuale > 30) sanction = {...sanction, art: '167/3-d', fascia: 'Oltre 30%', importo: '431-1734', punti: 4, acc: 'Ritiro C.d.C.'};
+                    else if (eccedenzaPercentuale > 20) sanction = {...sanction, art: '167/3-c', fascia: '20-30%', importo: '173-695', punti: 3, acc: 'Ripristino'};
+                    else if (eccedenzaPercentuale > 10) sanction = {...sanction, art: '167/3-b', fascia: '10-20%', importo: '87-345', punti: 2, acc: 'Ripristino'};
+                    else sanction = {...sanction, art: '167/3-a', fascia: 'fino al 10%', importo: '42-173', punti: 1, acc: 'Ripristino'};
+                }
+            }
+
+            // --- 5. Visualizzazione Risultati ---
+            displayResults(sanction, eccedenzaNettaSanzionabile, massNettaRilevata, massaAmmessaCorretta, franchigiaLegale, merciPericolose);
+        }
+
+        function displayResults(sanction, eccedenza, mnr, mac, franchigia, isADR) {
+            let resultHtml = `
+                <div class="result-box bg-white border border-blue-200">
+                    <h3 class="text-blue-700">Dettagli Accertamento</h3>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <p>Massa Ammessa: <strong>${Math.round(mac).toLocaleString()} kg</strong></p>
+                        <p>Massa Netta Rilevata: <strong>${Math.round(mnr).toLocaleString()} kg</strong></p>
+                        <p>Franchigia Legale: <strong>${Math.round(franchigia).toLocaleString()} kg</strong></p>
+                        <p class="font-bold text-red-600">Eccedenza Sanzionabile: <strong>${eccedenza.toLocaleString()} kg</strong></p>
+                    </div>
+                </div>
+            `;
+            
+            if (sanction.isViolation) {
+                let provvedimenti = sanction.acc === 'Ritiro C.d.C.' ? 
+                    'RITIRO CARTA DI CIRCOLAZIONE (Art. 167, c. 9) e Obbligo di Ripristino del carico (Art. 167, c. 10).' : 
+                    'Obbligo di Ripristino del carico prima di proseguire il viaggio (Art. 167, c. 10).';
+                if (isADR) {
+                    provvedimenti += '<br><strong>SANZIONE ACCESSORIA ADR (Art. 168, c.8): Sospensione patente e C.F.P. da 2 a 6 mesi.</strong>';
+                }
+                
+                resultHtml += `
+                    <div class="result-box danger mt-4">
+                        <h3 class="text-red-700 border-red-300">Violazione Accertata: Art. ${isADR ? '168' : sanction.art} C.d.S.</h3>
+                        <p><strong>FASCIA:</strong> ${sanction.fascia}</p>
+                        <p><strong>SANZIONE PECUNIARIA:</strong> Da € ${sanction.importo.split('-')[0]} a € ${sanction.importo.split('-')[1]}</p>
+                        <p><strong>DECURTAZIONE PUNTI:</strong> ${sanction.punti}</p>
+                        <p class="mt-2"><strong>PROVVEDIMENTI:</strong> ${provvedimenti}</p>
+                    </div>
+                `;
+                generateVerbalText(sanction, eccedenza, provvedimenti);
+            } else {
+                resultHtml += `<div class="result-box bg-green-100 text-green-700 font-bold mt-4">ACCERTAMENTO NEGATIVO: Il veicolo rientra nei limiti di massa.</div>`;
+            }
+            document.getElementById('result').innerHTML = resultHtml;
+        }
+
+        function generateVerbalText(sanction, eccedenza, provvedimenti) {
+            const nomePesa = document.getElementById('nomePesa').value.trim();
+            const certificatoPesa = document.getElementById('certificatoPesa').value.trim();
+            const noteVerbale = document.getElementById('noteVerbale').value.trim();
+            const obbligati = Array.from(document.querySelectorAll('#obbligatiContainer .obbligato-entry')).map(entry => {
+                const tipo = entry.querySelector('select').value;
+                const dati = entry.querySelector('textarea').value.trim();
+                return `<li><strong>${tipo}:</strong> ${dati}</li>`;
+            }).join('');
+            
+            let descrizioneBreve = `circolava con la massa complessiva superiore a quella ammessa. Eccedenza netta accertata: ${eccedenza.toLocaleString()} kg.`;
+            let pesaEsternaClausola = nomePesa ? `La pesatura è stata eseguita su pesa esterna (${nomePesa}). Si attesta l'acquisizione del Certificato di Verificazione Periodica n. ${certificatoPesa || 'N/D'}.` : '';
+
+            let verbalHtml = `
+                <div class="verbal-box warning">
+                    <h3 class="text-amber-700 border-amber-300">Formulazione per Verbale</h3>
+                    <p class="font-mono text-sm p-3 bg-amber-50 rounded border border-amber-200">
+                        Quale conducente del veicolo, ${descrizioneBreve}<br><br>
+                        <strong>Riferimento normativo:</strong> Art. ${sanction.art} C.d.S.<br><br>
+                        <strong>Provvedimenti applicati:</strong> ${provvedimenti}<br><br>
+                        ${pesaEsternaClausola}
+                        ${noteVerbale ? `<br><br><strong>Note:</strong> ${noteVerbale}` : ''}
+                    </p>
+                    ${obbligati ? `<h4 class="font-semibold mt-4">Obbligati in Solido da riportare:</h4><ul class="list-disc pl-5 text-sm">${obbligati}</ul>` : ''}
+                </div>
+            `;
+            document.getElementById('verbalOutput').innerHTML = verbalHtml;
         }
         
-        function calculateArt168Sanction(mcpc, massDetected) {
-            const tolerancePercentage = parseFloat(document.getElementById('tolerance').value);
-            const toleranceValue = roundUpToHundreds(massDetected * tolerancePercentage);
-            const massNettaRilevata = massDetected - toleranceValue;
-            const massaAmmessa = mcpc;
-            const eccedenzaNetta = massNettaRilevata - massaAmmessa;
-            const eccedenzaNettaSanzionabile = eccedenzaNetta > 0 ? roundUpToHundreds(eccedenzaNetta) : 0;
-
-            const isViolation = eccedenzaNettaSanzionabile > 0;
-            const category = mcpc > 10000 ? 'heavy' : 'light';
-            let sanction = getSanctionDetails(isViolation, category, eccedenzaNettaSanzionabile, mcpc);
-            
-            if(isViolation) {
-                sanction.riferimentoNormativo = 'Art. 168 c. 7 e Art. 167 C.d.S.';
-                sanction.provvedimentoAccessorio += ' + SOSPENSIONE PATENTE E C.F.P. (ADR) da 2 a 6 mesi (Art. 168 c. 8).';
-            }
-            
-            displayResults(sanction, {
-                massaAmmessaCorretta: massaAmmessa, tolleranzaLegale: 0, massaMinimaSanzionabile: massaAmmessa, 
-                toleranceValue, massNettaRilevata, eccedenzaNettaSanzionabile
-            });
-        }
-
-        function getSanctionDetails(isViolation, category, eccedenza, mcpc) {
-            let sanction = { isViolation: isViolation, descrizioneBreve: '', fascia: 'Nessuna Sanzione', importoMin: 0, importoMax: 0, punti: 0, provvedimentoAccessorio: 'Il veicolo può proseguire il viaggio.', riferimentoNormativo: 'Nessuna violazione accertata.'};
-            if (!isViolation) return sanction;
-
-            let sanzioni;
-            if (category === 'heavy') {
-                const eccedenzaT = eccedenza / 1000;
-                sanzioni = [
-                    {limite: 1, fascia: 'Fino a 1 t', p:1, min:42, max:173, lett:'a'},
-                    {limite: 2, fascia: 'Oltre 1 t e fino a 2 t', p:2, min:87, max:345, lett:'b'},
-                    {limite: 3, fascia: 'Oltre 2 t e fino a 3 t', p:3, min:173, max:695, lett:'c'},
-                    {limite: Infinity, fascia: 'Oltre 3 t', p:4, min:431, max:1734, lett:'d'}
-                ];
-                const s = sanzioni.find(s => eccedenzaT <= s.limite);
-                Object.assign(sanction, {punti:s.p, importoMin:s.min, importoMax:s.max, fascia:s.fascia, riferimentoNormativo:`Art. 167 c. 2 lett. ${s.lett}`, descrizioneBreve:`circolava con massa complessiva superiore ai limiti, con eccedenza di ${eccedenza.toLocaleString()} kg (${eccedenzaT.toFixed(2)} t).`});
-            } else { // light
-                const eccedenzaP = (eccedenza / mcpc) * 100;
-                sanzioni = [
-                    {limite: 10, fascia: 'Oltre 5% e fino al 10%', p:1, min:42, max:173, lett:'a'},
-                    {limite: 20, fascia: 'Oltre 10% e fino al 20%', p:2, min:87, max:345, lett:'b'},
-                    {limite: 30, fascia: 'Oltre 20% e fino al 30%', p:3, min:173, max:695, lett:'c'},
-                    {limite: Infinity, fascia: 'Oltre 30%', p:4, min:431, max:1734, lett:'d'}
-                ];
-                 const s = sanzioni.find(s => eccedenzaP <= s.limite);
-                 Object.assign(sanction, {punti:s.p, importoMin:s.min, importoMax:s.max, fascia:s.fascia, riferimentoNormativo:`Art. 167 c. 3 e c. 2 lett. ${s.lett}`, descrizioneBreve:`circolava con massa complessiva superiore ai limiti, con eccedenza di ${eccedenza.toLocaleString()} kg (pari al ${eccedenzaP.toFixed(2)}%).`});
-            }
-
-            sanction.provvedimentoAccessorio = 'Obbligo di ripristino del carico prima di proseguire (Art. 167 c. 10).';
-            if (sanction.punti === 4) {
-                sanction.provvedimentoAccessorio = 'RITIRO CARTA DI CIRCOLAZIONE (Art. 167 c. 9) e Obbligo di ripristino del carico.';
-            }
-            return sanction;
-        }
-
-        function displayResults(sanction, calc) {
-            let calculationHtml = `
-                <div class="result-box bg-white border border-blue-200">
-                    <h3 class="text-blue-700">Dettagli Calcolo</h3>
-                    <div class="text-sm space-y-2">
-                        <p><strong>Massa Ammessa (corretta):</strong> ${calc.massaAmmessaCorretta.toLocaleString()} kg</p>
-                        <p><strong>Tolleranza Legale (5% su MCPC):</strong> ${calc.tolleranzaLegale.toLocaleString()} kg</p>
-                        <p><strong>Massa Minima Sanzionabile:</strong> ${calc.massaMinimaSanzionabile.toLocaleString()} kg</p>
-                        <hr class="my-1"/>
-                        <p><strong>Tolleranza Strumentale:</strong> ${calc.toleranceValue.toLocaleString()} kg</p>
-                        <p><strong>Massa Netta Rilevata:</strong> ${calc.massNettaRilevata.toLocaleString()} kg</p>
-                        <p class="font-bold text-red-600"><strong>Eccedenza Netta Sanzionabile:</strong> ${calc.eccedenzaNettaSanzionabile.toLocaleString()} kg</p>
-                    </div>
-                </div>`;
-            
-            let sanctionHtml = '';
-            if (sanction.isViolation) {
-                sanctionHtml = `
-                    <div class="result-box danger">
-                        <h3 class="text-red-700 border-red-300">Violazione Accertata</h3>
-                        <p><strong>FASCIA:</strong> ${sanction.fascia} (${sanction.riferimentoNormativo})</p>
-                        <p><strong>SANZIONE:</strong> Da € ${sanction.importoMin} a € ${sanction.importoMax}</p>
-                        <p><strong>PUNTI:</strong> ${sanction.punti}</p>
-                        <p class="mt-2"><strong>PROVVEDIMENTI:</strong> ${sanction.provvedimentoAccessorio}</p>
-                    </div>`;
-                
-                const obbligatiList = Array.from(document.querySelectorAll('.obbligato-entry')).map(entry => {
-                    const tipo = entry.querySelector('.obbligato-tipo').value;
-                    const nome = entry.querySelector('.obbligato-nome').value;
-                    return `- ${tipo}: ${nome || '[non specificato]'}`;
-                }).join('\n');
-                
-                let pesaEsternaClausola = '';
-                const nomePesa = document.getElementById('nomePesa').value;
-                const certPesa = document.getElementById('certificatoPesa').value;
-                if (nomePesa && certPesa) {
-                    pesaEsternaClausola = `La pesatura è stata eseguita su pesa esterna (${nomePesa}), con CVP n. ${certPesa}.`;
-                }
-                const noteAggiuntive = document.getElementById('noteVerbale').value;
-
-                document.getElementById('verbalOutput').innerHTML = `
-                    <div class="verbal-box warning mt-4">
-                        <h3 class="text-amber-700 border-amber-300">Formulazione per Verbale</h3>
-                        <p class="text-sm font-bold mb-1">A. Descrizione Infrazione:</p>
-                        <div class="bg-amber-50 p-2 rounded border text-sm font-mono"><p>${sanction.descrizioneBreve}</p></div>
-                        
-                        <p class="text-sm font-bold mt-3 mb-1">B. Obbligati in Solido:</p>
-                        <div class="bg-amber-50 p-2 rounded border text-sm font-mono whitespace-pre-wrap">${obbligatiList || 'Nessun obbligato in solido inserito.'}</div>
-
-                        <p class="text-sm font-bold mt-3 mb-1">C. Note e Provvedimenti:</p>
-                        <div class="bg-amber-50 p-2 rounded border text-sm font-mono whitespace-pre-wrap">${sanction.provvedimentoAccessorio}\n${pesaEsternaClausola}\n${noteAggiuntive ? '\nNote: ' + noteAggiuntive : ''}</div>
-                    </div>`;
-            } else {
-                 sanctionHtml = `<div class="result-box bg-green-100 text-green-700 font-bold"><p>ACCERTAMENTO NEGATIVO: Il veicolo rientra nei limiti.</p></div>`;
-            }
-
-            document.getElementById('result').innerHTML = calculationHtml + sanctionHtml;
-        }
-
         // --- Inizializzazione ---
         document.addEventListener('DOMContentLoaded', () => {
              resetForm(); // Pulisce e inizializza il form al caricamento
